@@ -159,9 +159,12 @@ class Files(object):
             """.format(
                 directory
             )
+        print("file-0")
         self._pyboard.enter_raw_repl()
         try:
+            print("file-1")
             out = self._pyboard.exec_(textwrap.dedent(command))
+            print("file-2")
         except PyboardError as ex:
             # Check if this is an OSError #2, i.e. directory doesn't exist and
             # rethrow it as something more descriptive.

@@ -120,39 +120,57 @@ class TelnetToSerial:
 
 class Pyboard:
     def __init__(self, device, baudrate=115200, user='micro', password='python', wait=0, rawdelay=0):
+        print("step1")
         global _rawdelay
         _rawdelay = rawdelay
+        print("step2")
         if device and device[0].isdigit() and device[-1].isdigit() and device.count('.') == 3:
             # device looks like an IP address
+            print("step3-1-1")
             self.serial = TelnetToSerial(device, user, password, read_timeout=10)
+            print("step3-1-2")
+
         else:
+            print("step3-2-1")
             import serial
             delayed = False
+            print("step3-2-2")
             for attempt in range(wait + 1):
+                print("step3-2-3")
                 try:
+                    print("step3-2-4")
                     self.serial = serial.Serial(device, baudrate=baudrate, interCharTimeout=1)
                     break
                 except (OSError, IOError): # Py2 and Py3 have different errors
+                    print("step3-2-5-except")
                     if wait == 0:
                         continue
                     if attempt == 0:
                         sys.stdout.write('Waiting {} seconds for pyboard '.format(wait))
                         delayed = True
+                print("step3-2-6")
                 time.sleep(1)
                 sys.stdout.write('.')
                 sys.stdout.flush()
+                print("step3-2-7")
             else:
                 if delayed:
                     print('')
                 raise PyboardError('failed to access ' + device)
+                print("step3-2-8")
             if delayed:
                 print('')
+                print("step3-2-9")
+            print("step3-3")
 
     def close(self):
         self.serial.close()
 
     def read_until(self, min_num_bytes, ending, timeout=10, data_consumer=None):
+        print("pyboard.read_untl-1")
+        # 여기에서 막힌다. 읽지를 못하고 있다.
         data = self.serial.read(min_num_bytes)
+        print("pyboard.read_untl-2", data)
         if data_consumer:
             data_consumer(data)
         timeout_count = 0
@@ -161,6 +179,7 @@ class Pyboard:
                 break
             elif self.serial.inWaiting() > 0:
                 new_data = self.serial.read(1)
+                print(new_data)
                 data = data + new_data
                 if data_consumer:
                     data_consumer(new_data)
@@ -173,29 +192,46 @@ class Pyboard:
         return data
 
     def enter_raw_repl(self):
+        print("pyboard.enter_raw_repel-0")
         # Brief delay before sending RAW MODE char if requests
         if _rawdelay > 0:
             time.sleep(_rawdelay)
+        print("pyboard.enter_raw_repel-1")
 
         self.serial.write(b'\r\x03\x03') # ctrl-C twice: interrupt any running program
 
+        print("pyboard.enter_raw_repel-2")
         # flush input (without relying on serial.flushInput())
         n = self.serial.inWaiting()
         while n > 0:
             self.serial.read(n)
             n = self.serial.inWaiting()
-
+        print("pyboard.enter_raw_repel-3")
+        time.sleep(0.5)
         self.serial.write(b'\r\x01') # ctrl-A: enter raw REPL
+        for i in range(4):
+            time.sleep(0.1)
+            self.serial.write(b'\x01') # ctrl-A: enter raw REPL 간헐적으로 가지 않는 문제
+        self.serial.flushOutput()
+        # 여기에서 멈추는데,  위의 코드가 제대로 전달 되었는지가 문제..
+        print("pyboard.enter_raw_repel-3-1")
         data = self.read_until(1, b'raw REPL; CTRL-B to exit\r\n>')
+        # data = self.read_until(1, b'raw REPL; CTRL-B to exit\n>')
+        print("pyboard.enter_raw_repel-4")
         if not data.endswith(b'raw REPL; CTRL-B to exit\r\n>'):
             print(data)
             raise PyboardError('could not enter raw repl')
-
-        self.serial.write(b'\x04') # ctrl-D: soft reset
+        print("pyboard.enter_raw_repel-5")
+        self.serial.flushInput()
+        self.serial.write(b'\x04')  # ctrl-D: soft reset
         data = self.read_until(1, b'soft reboot\r\n')
+        print("pyboard.enter_raw_repel-6")
+
         if not data.endswith(b'soft reboot\r\n'):
             print(data)
             raise PyboardError('could not enter raw repl')
+        print("pyboard.enter_raw_repel-7")
+
         # By splitting this into 2 reads, it allows boot.py to print stuff,
         # which will show up after the soft reboot and before the raw REPL.
         # Modification from original pyboard.py below:
@@ -206,10 +242,15 @@ class Pyboard:
         time.sleep(0.1)           # (slight delay before second interrupt
         self.serial.write(b'\x03')
         # End modification above.
+        
+        print("pyboard.enter_raw_repel-8")
         data = self.read_until(1, b'raw REPL; CTRL-B to exit\r\n')
+
+        print("pyboard.enter_raw_repel-9")
         if not data.endswith(b'raw REPL; CTRL-B to exit\r\n'):
             print(data)
             raise PyboardError('could not enter raw repl')
+        print("pyboard.enter_raw_repel-10")
 
     def exit_raw_repl(self):
         self.serial.write(b'\r\x02') # ctrl-B: enter friendly REPL
@@ -262,6 +303,7 @@ class Pyboard:
         return ret
 
     def exec_(self, command):
+        # print("pyboard.exec_", command)
         ret, ret_err = self.exec_raw(command)
         if ret_err:
             raise PyboardError('exception', ret, ret_err)

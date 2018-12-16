@@ -96,7 +96,10 @@ def cli(port, baud, delay):
     # windows_full_port_name function).
     if platform.system() == "Windows":
         port = windows_full_port_name(port)
+        print(port)
     _board = pyboard.Pyboard(port, baudrate=baud, rawdelay=delay)
+    print(_board.serial)
+    print("end of cli")
 
 
 @cli.command()
@@ -190,9 +193,13 @@ def ls(directory, long_format, recursive):
       ampy --port /board/serial/port ls -l /foo/bar
     """
     # List each file/directory on a separate line.
+    print("ls-1")
     board_files = files.Files(_board)
+    print("ls-2",directory, long_format, recursive)
     for f in board_files.ls(directory, long_format=long_format, recursive=recursive):
+        print("ls-3")
         print(f)
+    print("ls-4")
 
 
 @cli.command()

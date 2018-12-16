@@ -157,15 +157,17 @@ class TestFiles(unittest.TestCase):
         self.assertEqual(output, b"Hello world")
 
     def test_run_without_output(self):
+        import os
         pyboard = mock.Mock()
         pyboard.exec_raw_no_follow = mock.Mock()
         board_files = files.Files(pyboard)
-        with tempfile.NamedTemporaryFile() as program:
+        with tempfile.NamedTemporaryFile(delete=False) as program:
             program.write(b'print("Hello world")')
             program.flush()
             output = board_files.run(program.name, wait_output=False)
         self.assertEqual(output, None)
         pyboard.exec_raw_no_follow.assert_called_once_with(b'print("Hello world")')
+        os.remove(program.name)
 
     def test_mkdir_no_error(self):
         pyboard = mock.Mock()
